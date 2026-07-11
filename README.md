@@ -1,4 +1,4 @@
-![MongoDB Backup terminal UI](docs/preview.png)
+![MongoDB Backup terminal UI](docs/mongo-backup.png)
 
 Small Docker image for scheduled MongoDB archive backups and interactive restores. It contains MongoDB's `mongodump` and `mongorestore` tools, Debian cron, and the Gum terminal UI.
 
