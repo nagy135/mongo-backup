@@ -1,0 +1,31 @@
+#!/bin/sh
+
+set -eu
+
+backup_directory=${BACKUP_DIRECTORY:-/backups}
+timestamp=$(date -u +%Y-%m-%dT%H-%M-%SZ)
+backup_path="$backup_directory/mongodb-$timestamp.archive.gz"
+partial_path="$backup_path.partial"
+lock_directory=/tmp/mongodb-backup.lock
+
+if ! mkdir "$lock_directory" 2>/dev/null; then
+  echo "A MongoDB backup is already running" >&2
+  exit 1
+fi
+
+trap 'rm -f "$partial_path"; rmdir "$lock_directory"' EXIT INT TERM
+
+mkdir -p "$backup_directory"
+
+echo "Creating MongoDB backup at $backup_path"
+if mongodump --uri="${MONGODB_URI:?MONGODB_URI must be set}" --archive="$partial_path" --gzip; then
+  mv "$partial_path" "$backup_path"
+  echo "MongoDB backup completed: $backup_path"
+else
+  rm -f "$partial_path"
+  echo "MongoDB backup failed" >&2
+  exit 1
+fi
+
+retention_days=${BACKUP_RETENTION_DAYS:-7}
+find "$backup_directory" -type f -name 'mongodb-*.archive.gz' -mtime "+$retention_days" -delete
