@@ -2,30 +2,18 @@
 
 Small Docker image for scheduled MongoDB archive backups and interactive restores. It contains MongoDB's `mongodump` and `mongorestore` tools, Debian cron, and the Gum terminal UI.
 
-## Repository layout
+## Installation
 
-Keep these files together when moving this directory into its own repository:
+From the directory that contains the application's `docker-compose.yml`, clone this repository:
 
-```text
-mongo-backup/
-  Dockerfile
-  backup-now
-  backup-ui
-  list-backups
-  README.md
+```sh
+git clone git@github.com:nagy135/mongo-backup.git
 ```
 
-## Add to Docker Compose
-
-Copy the following service and volume definition into the target project's `docker-compose.yml`. Update `MONGODB_URI` to match the MongoDB service name, credentials, and database name used by the application.
+Then modify the application's `docker-compose.yml` to add the `backup` service under `services` and the `mongo_backups` volume under `volumes`. Update `MONGODB_URI` to match the MongoDB service name, credentials, and database name used by the application.
 
 ```yaml
 services:
-  mongo:
-    image: mongo:8.0-noble
-    volumes:
-      - mongo_data:/data/db
-
   backup:
     build:
       context: ./mongo-backup
@@ -54,11 +42,10 @@ services:
       - mongo_backups:/backups
 
 volumes:
-  mongo_data:
   mongo_backups:
 ```
 
-`MONGODB_URI` must use the Compose network hostname (`mongo` in the example), not `localhost`. `localhost` inside the backup container refers to the backup container itself.
+`MONGODB_URI` must use the Compose network hostname of the existing MongoDB service (`mongo` in the example), not `localhost`. `localhost` inside the backup container refers to the backup container itself.
 
 ## Configuration
 
