@@ -47,6 +47,28 @@ volumes:
 
 `MONGODB_URI` must use the Compose network hostname of the existing MongoDB service (`mongo` in the example), not `localhost`. `localhost` inside the backup container refers to the backup container itself.
 
+## Docker Hub Releases
+
+GitHub Actions publishes version tags whose commits are on `master` to Docker Hub. Each release updates both the versioned image and `latest`.
+
+Configure the GitHub repository secret `DOCKERHUB_TOKEN` with a Docker Hub personal access token that can write to `viktornagy/mongo-backup`. Then create and push a semantic version tag from `master`:
+
+```sh
+git switch master
+git pull --ff-only
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+This publishes:
+
+```text
+viktornagy/mongo-backup:v1.0.0
+viktornagy/mongo-backup:latest
+```
+
+Tags such as `1.0.0` are also supported. Non-version tags and tags whose commits are not contained in `master` are skipped.
+
 ## Configuration
 
 | Variable                | Default     | Description                                            |
