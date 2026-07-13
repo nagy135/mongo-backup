@@ -4,20 +4,14 @@ Small Docker image for scheduled MongoDB archive backups and interactive restore
 
 ## Installation
 
-From the directory that contains the application's `docker-compose.yml`, clone this repository:
+### Pull from Docker Hub
 
-```sh
-git clone git@github.com:nagy135/mongo-backup.git
-```
-
-Then modify the application's `docker-compose.yml` to add the `backup` service under `services` and the `mongo_backups` volume under `volumes`. Update `MONGODB_URI` to match the MongoDB service name, credentials, and database name used by the application.
+Add the `backup` service and `mongo_backups` volume to the application's `docker-compose.yml`. Update `MONGODB_URI` to match the MongoDB service name, credentials, and database name used by the application.
 
 ```yaml
 services:
   backup:
-    build:
-      context: ./mongo-backup
-      dockerfile: Dockerfile
+    image: viktornagy/mongo-backup:latest
     restart: unless-stopped
     depends_on:
       - mongo
@@ -43,6 +37,39 @@ services:
 
 volumes:
   mongo_backups:
+```
+
+Pull the image and start the service:
+
+```sh
+docker compose pull backup
+docker compose up -d backup
+```
+
+Use a versioned image such as `viktornagy/mongo-backup:v1.0.0` instead of `latest` to keep deployments pinned to a specific release.
+
+### Build from Source
+
+From the directory that contains the application's `docker-compose.yml`, clone this repository:
+
+```sh
+git clone https://github.com/nagy135/mongo-backup.git
+```
+
+In the Compose configuration above, replace the `image` line with:
+
+```yaml
+services:
+  backup:
+    build:
+      context: ./mongo-backup
+      dockerfile: Dockerfile
+```
+
+Then build and start the service:
+
+```sh
+docker compose up -d --build backup
 ```
 
 `MONGODB_URI` must use the Compose network hostname of the existing MongoDB service (`mongo` in the example), not `localhost`. `localhost` inside the backup container refers to the backup container itself.
@@ -87,10 +114,10 @@ BACKUP_RETENTION_DAYS=14
 
 ## Operations
 
-Build and start the service:
+Start or recreate the service:
 
 ```sh
-docker compose up -d --build backup
+docker compose up -d backup
 ```
 
 Create an archive immediately:
