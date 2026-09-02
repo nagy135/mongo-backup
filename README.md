@@ -19,6 +19,7 @@ services:
       MONGODB_URI: mongodb://mongo:27017/my-database
       BACKUP_CRON_SCHEDULE: ${BACKUP_CRON_SCHEDULE:-0 2 * * *}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_RETENTION_POLICY: ${BACKUP_RETENTION_POLICY:-}
     command:
       - /bin/sh
       - -c
@@ -29,6 +30,7 @@ services:
         MONGODB_URI="$$MONGODB_URI"
         BACKUP_DIRECTORY="/backups"
         BACKUP_RETENTION_DAYS="$$BACKUP_RETENTION_DAYS"
+        BACKUP_RETENTION_POLICY="$$BACKUP_RETENTION_POLICY"
         $$BACKUP_CRON_SCHEDULE backup-now >> /proc/1/fd/1 2>> /proc/1/fd/2
         EOF
         exec cron -f
@@ -98,12 +100,13 @@ Tags such as `1.0.0` are also supported. Non-version tags and tags whose commits
 
 ## Configuration
 
-| Variable                | Default     | Description                                            |
-| ----------------------- | ----------- | ------------------------------------------------------ |
-| `MONGODB_URI`           | Required    | Full connection URI and database to back up.           |
-| `BACKUP_CRON_SCHEDULE`  | `0 2 * * *` | Standard five-field cron expression, evaluated in UTC. |
-| `BACKUP_RETENTION_DAYS` | `7`         | Delete archives older than this number of days.        |
-| `BACKUP_DIRECTORY`      | `/backups`  | Archive directory inside the container.                |
+| Variable                  | Default     | Description                                                      |
+| ------------------------- | ----------- | ---------------------------------------------------------------- |
+| `MONGODB_URI`             | Required    | Full connection URI and database to back up.                     |
+| `BACKUP_CRON_SCHEDULE`    | `0 2 * * *` | Standard five-field cron expression, evaluated in UTC.           |
+| `BACKUP_RETENTION_DAYS`   | `7`         | Delete archives older than this number of days.                  |
+| `BACKUP_RETENTION_POLICY` | Empty       | Optional comma-separated `maximum-age:interval` retention tiers. |
+| `BACKUP_DIRECTORY`        | `/backups`  | Archive directory inside the container.                          |
 
 For example, run a backup every six hours and retain it for 14 days:
 
@@ -111,6 +114,25 @@ For example, run a backup every six hours and retain it for 14 days:
 BACKUP_CRON_SCHEDULE=0 */6 * * *
 BACKUP_RETENTION_DAYS=14
 ```
+
+### Tiered retention
+
+To create a backup every 10 minutes, retain that resolution for the first day,
+then retain one backup per hour through day 7 and one per day through day 30:
+
+```dotenv
+BACKUP_CRON_SCHEDULE=*/10 * * * *
+BACKUP_RETENTION_POLICY=1d:10m,7d:1h,30d:1d
+```
+
+The backup job always runs at the cron schedule's frequency. After each successful
+backup, the retention policy keeps the newest archive in each 10-minute, hourly,
+or daily UTC bucket and removes the others. Archives older than the final tier are
+deleted. Supported duration units are `m` (minutes), `h` (hours), and `d` (days).
+Tier maximum ages must increase and intervals must stay the same or increase.
+
+`BACKUP_RETENTION_POLICY` takes precedence over `BACKUP_RETENTION_DAYS`. Leave it
+empty to keep the original age-only retention behavior.
 
 ## Operations
 

@@ -27,5 +27,4 @@ else
   exit 1
 fi
 
-retention_days=${BACKUP_RETENTION_DAYS:-7}
-find "$backup_directory" -type f -name 'mongodb-*.archive.gz' -mtime "+$retention_days" -delete
+prune-backups

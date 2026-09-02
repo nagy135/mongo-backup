@@ -1,0 +1,107 @@
+#!/bin/sh
+
+set -eu
+
+backup_directory=${BACKUP_DIRECTORY:-/backups}
+retention_policy=${BACKUP_RETENTION_POLICY:-}
+
+if [ -z "$retention_policy" ]; then
+  retention_days=${BACKUP_RETENTION_DAYS:-7}
+  case $retention_days in
+    ''|*[!0-9]*)
+      echo "BACKUP_RETENTION_DAYS must be a non-negative integer" >&2
+      exit 1
+      ;;
+  esac
+
+  find "$backup_directory" -type f -name 'mongodb-*.archive.gz' \
+    -mtime "+$retention_days" -delete
+  exit
+fi
+
+now=$(date -u +%s)
+deletion_list=$(mktemp)
+trap 'rm -f "$deletion_list"' EXIT INT TERM
+
+# Sort newest first, then keep the first archive found in each retention bucket.
+# GNU find is available in the Ubuntu image used by this project.
+if ! find "$backup_directory" -type f -name 'mongodb-*.archive.gz' \
+  -printf '%T@ %p\n' | sort -nr | awk -v now="$now" -v policy="$retention_policy" '
+  function duration_seconds(value, unit, amount) {
+    if (value !~ /^[1-9][0-9]*[mhd]$/) {
+      return 0
+    }
+
+    unit = substr(value, length(value), 1)
+    amount = substr(value, 1, length(value) - 1) + 0
+    if (unit == "m") return amount * 60
+    if (unit == "h") return amount * 60 * 60
+    return amount * 24 * 60 * 60
+  }
+
+  BEGIN {
+    level_count = split(policy, levels, ",")
+    previous_age = 0
+    previous_interval = 0
+
+    for (level = 1; level <= level_count; level++) {
+      if (split(levels[level], parts, ":") != 2) {
+        print "Invalid BACKUP_RETENTION_POLICY tier: " levels[level] > "/dev/stderr"
+        exit 2
+      }
+
+      maximum_age[level] = duration_seconds(parts[1])
+      interval[level] = duration_seconds(parts[2])
+      if (maximum_age[level] == 0 || interval[level] == 0) {
+        print "Invalid BACKUP_RETENTION_POLICY tier: " levels[level] > "/dev/stderr"
+        exit 2
+      }
+      if (maximum_age[level] <= previous_age) {
+        print "BACKUP_RETENTION_POLICY maximum ages must increase" > "/dev/stderr"
+        exit 2
+      }
+      if (interval[level] < previous_interval) {
+        print "BACKUP_RETENTION_POLICY intervals must not decrease" > "/dev/stderr"
+        exit 2
+      }
+
+      previous_age = maximum_age[level]
+      previous_interval = interval[level]
+    }
+  }
+
+  {
+    timestamp = int($1)
+    path = substr($0, index($0, " ") + 1)
+    age = now - timestamp
+    if (age < 0) age = 0
+
+    selected_level = 0
+    for (level = 1; level <= level_count; level++) {
+      if (age <= maximum_age[level]) {
+        selected_level = level
+        break
+      }
+    }
+
+    if (selected_level == 0) {
+      print path
+      next
+    }
+
+    bucket = selected_level SUBSEP int(timestamp / interval[selected_level])
+    if (seen[bucket]) {
+      print path
+    } else {
+      seen[bucket] = 1
+    }
+  }
+' > "$deletion_list"; then
+  exit 1
+fi
+
+while IFS= read -r backup_path; do
+  [ -n "$backup_path" ] || continue
+  echo "Deleting expired MongoDB backup: $backup_path"
+  rm -f -- "$backup_path"
+done < "$deletion_list"

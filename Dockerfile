@@ -10,9 +10,9 @@ RUN apt-get update \
 
 COPY --from=mongo-tools /usr/bin/mongodump /usr/bin/mongorestore /usr/local/bin/
 COPY --from=gum /usr/local/bin/gum /usr/local/bin/gum
-COPY backup-now backup-ui list-backups /usr/local/bin/
+COPY backup-now backup-ui list-backups prune-backups /usr/local/bin/
 
-RUN chmod +x /usr/local/bin/backup-now /usr/local/bin/backup-ui /usr/local/bin/list-backups \
+RUN chmod +x /usr/local/bin/backup-now /usr/local/bin/backup-ui /usr/local/bin/list-backups /usr/local/bin/prune-backups \
   && mkdir -p /backups
 
 VOLUME ["/backups"]
