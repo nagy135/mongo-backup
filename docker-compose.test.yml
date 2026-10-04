@@ -1,0 +1,50 @@
+services:
+  mongo:
+    image: mongo:8.0-noble
+    volumes:
+      - test_mongo_data:/data/db
+      - ./tests/seed-mongo.js:/docker-entrypoint-initdb.d/seed-mongo.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "quit(db.getSiblingDB('backup-ui-test').customers.countDocuments({}) > 0 ? 0 : 1)"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  backup:
+    build: .
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/backup-ui-test
+      BACKUP_DIRECTORY: /backups
+      BACKUP_CRON_SCHEDULE: "*/10 * * * *"
+      BACKUP_RETENTION_DAYS: "7"
+    volumes:
+      - test_backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/demo-ready && ls /backups/*.archive.gz >/dev/null 2>&1"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        rm -f /tmp/demo-ready
+        cat <<EOF | crontab -
+        SHELL=/bin/sh
+        PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        MONGODB_URI="$$MONGODB_URI"
+        BACKUP_DIRECTORY="$$BACKUP_DIRECTORY"
+        BACKUP_RETENTION_DAYS="$$BACKUP_RETENTION_DAYS"
+        $$BACKUP_CRON_SCHEDULE backup-now >> /proc/1/fd/1 2>> /proc/1/fd/2
+        EOF
+        backup-now
+        touch /tmp/demo-ready
+        exec cron -f
+
+volumes:
+  test_mongo_data:
+  test_backups:

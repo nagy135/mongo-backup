@@ -1,6 +1,6 @@
 ![MongoDB Backup terminal UI](docs/mongo-backup.png)
 
-Small Docker image for scheduled MongoDB archive backups and interactive restores. It contains MongoDB's `mongodump` and `mongorestore` tools, Debian cron, and the Gum terminal UI.
+Small Docker image for scheduled MongoDB archive backups and interactive restores. It contains MongoDB's `mongodump` and `mongorestore` tools, Debian cron, and a full-screen terminal UI built with Bubble Tea.
 
 ## Installation
 
@@ -162,12 +162,84 @@ docker compose exec backup backup-ui
 
 The UI can create backups, list them, rename a backup by adding a `-suffix`, and restore one. A restore runs a non-destructive preflight, then requires confirmation before using `mongorestore --drop` to replace matching collections.
 
+The archive list, selected archive details, actions, and activity log stay on screen.
+Each archive shows a compact age marker, such as `20m`, `5h`, or `2d 5h`,
+and updates automatically. Backups less than a minute old show `<1m`.
+Age uses the UTC timestamp in the backup filename, including renamed archives;
+external archives without that timestamp use their file modification time.
+Use `Tab` to switch panels, arrow keys or `j`/`k` to navigate, and `Enter` to run
+the highlighted action. You can also click panels and archive rows; click an
+action again to run it.
+
+| Key | Action |
+| --- | --- |
+| `b` | Create a backup |
+| `r` | Preflight and restore the selected archive |
+| `n` | Rename the selected archive with a suffix |
+| `/` | Filter archives by name |
+| `R` | Refresh archives (also refreshes automatically every five seconds) |
+| `1` / `2` / `3` | Focus archives / actions / activity |
+| `?` | Show keyboard help |
+| `Esc` | Clear the filter or cancel a dialog |
+| `q` | Quit when idle |
+| `Ctrl+C` | Stop the active operation, release its lock, and quit |
+
 To restore an external archive, copy it to the backup volume first:
 
 ```sh
 docker compose cp ./external.archive.gz backup:/backups/
 docker compose exec backup backup-ui
 ```
+
+### Try the UI with sample data
+
+The test stack starts a separate MongoDB, seeds four collections, and creates an
+initial backup. Its database and backup volumes are separate from your application.
+Start it from this repository:
+
+```sh
+docker compose -p mongo-backup-demo -f docker-compose.test.yml up -d --build --wait
+docker compose -p mongo-backup-demo -f docker-compose.test.yml exec backup backup-ui
+```
+
+The same stack supports the regular CLI commands:
+
+```sh
+docker compose -p mongo-backup-demo -f docker-compose.test.yml exec backup backup-now
+docker compose -p mongo-backup-demo -f docker-compose.test.yml exec backup list-backups
+```
+
+To try a restore, create a backup, change the sample data, then select the archive
+in the UI and press `r`:
+
+```sh
+docker compose -p mongo-backup-demo -f docker-compose.test.yml exec mongo \
+  mongosh backup-ui-test --quiet --eval 'db.customers.updateOne({_id: 1}, {$set: {name: "Changed after backup"}})'
+```
+
+After restoring, this prints `Ada Lovelace` again:
+
+```sh
+docker compose -p mongo-backup-demo -f docker-compose.test.yml exec mongo \
+  mongosh backup-ui-test --quiet --eval 'db.customers.findOne({_id: 1}).name'
+```
+
+Stop the demo while keeping its archives with `docker compose -p mongo-backup-demo
+-f docker-compose.test.yml down`. To reset all sample data and archives:
+
+```sh
+docker compose -p mongo-backup-demo -f docker-compose.test.yml down -v
+```
+
+### Develop the UI locally
+
+Go 1.24 or newer is required. Run `./backup-ui` to launch from source, or build a
+native executable with `go build -o bin/backup-ui ./cmd/backup-ui`. Local backup
+operations also require the MongoDB tools and executable copies of this
+repository's shell commands on `PATH` (`chmod +x backup-now list-backups` in this
+checkout); the source launcher adds the repository to `PATH` automatically. The
+Docker image includes everything needed and installs the compiled `backup-ui`
+binary directly. Run UI and operation tests with `go test ./...`.
 
 ## Persisting Archives
 
