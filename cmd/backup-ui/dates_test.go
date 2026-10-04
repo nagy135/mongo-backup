@@ -17,19 +17,37 @@ func TestArchiveDatesUseCaptureTimesAndKeepEveryArchive(t *testing.T) {
 		{name: "mongodb-2026-10-04T18-21-36Z.archive.gz", modified: modified},
 		{name: "mongodb-2026-10-02T13-20-00Z.archive.gz", modified: modified},
 	}
-	want := "Available backup dates (UTC, newest first):\n" +
-		"2026-10-04 19:00:00 UTC (file modification time; backup date unknown)\n" +
-		"2026-10-04 18:21:36 UTC\n" +
-		"2026-10-02 13:20:00 UTC\n" +
-		"2026-10-02 13:20:00 UTC\n"
-	if got := formatArchiveDates(archives); got != want {
-		t.Fatalf("got %q; want %q", got, want)
+	want := "Available backup dates (Europe/Berlin, newest first):\n" +
+		"2026-10-04 21:00:00 CEST (+02:00) (file modification time; backup date unknown)\n" +
+		"2026-10-04 20:21:36 CEST (+02:00)\n" +
+		"2026-10-02 15:20:00 CEST (+02:00)\n" +
+		"2026-10-02 15:20:00 CEST (+02:00)\n"
+	if got, err := formatArchiveDates(archives); err != nil || got != want {
+		t.Fatalf("got %q, %v; want %q", got, err, want)
 	}
 	if archives[0].name != "mongodb-2026-10-02T13-20-00Z-before-import.archive.gz" {
 		t.Fatal("printing reordered the UI's archive list")
 	}
-	if got := formatArchiveDates([]archive{{name: "external.archive.gz"}}); !strings.HasSuffix(got, "Unknown backup date\n") {
-		t.Fatalf("missing capture and file time should stay unknown: %q", got)
+	if got, err := formatArchiveDates([]archive{{name: "external.archive.gz"}}); err != nil || !strings.HasSuffix(got, "Unknown backup date\n") {
+		t.Fatalf("missing capture and file time should stay unknown: %q, %v", got, err)
+	}
+}
+
+func TestArchiveDatesUseCentralEuropeanDaylightSavingTime(t *testing.T) {
+	archives := []archive{
+		{name: "mongodb-2026-01-04T18-21-36Z.archive.gz"},
+		{name: "mongodb-2026-07-04T18-21-36Z.archive.gz"},
+		// The clocks go back: these different instants have the same local time.
+		{name: "mongodb-2026-10-25T00-30-00Z.archive.gz"},
+		{name: "mongodb-2026-10-25T01-30-00Z.archive.gz"},
+	}
+	want := "Available backup dates (Europe/Berlin, newest first):\n" +
+		"2026-10-25 02:30:00 CET (+01:00)\n" +
+		"2026-10-25 02:30:00 CEST (+02:00)\n" +
+		"2026-07-04 20:21:36 CEST (+02:00)\n" +
+		"2026-01-04 19:21:36 CET (+01:00)\n"
+	if got, err := formatArchiveDates(archives); err != nil || got != want {
+		t.Fatalf("got %q, %v; want %q", got, err, want)
 	}
 }
 
@@ -59,7 +77,7 @@ func TestPrintDatesRereadsAllArchivesAndQuits(t *testing.T) {
 		t.Fatal("printing did not request a clean terminal shutdown")
 	}
 	lines := strings.Split(strings.TrimSpace(m.printedDates), "\n")
-	if len(lines) != 42 || lines[1] != "2026-10-04 18:21:39 UTC" || lines[41] != "2026-10-02 13:20:00 UTC" {
+	if len(lines) != 42 || lines[1] != "2026-10-04 20:21:39 CEST (+02:00)" || lines[41] != "2026-10-02 15:20:00 CEST (+02:00)" {
 		t.Fatalf("printed list was stale, filtered, clipped, or misordered: %q", m.printedDates)
 	}
 }

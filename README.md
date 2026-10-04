@@ -188,7 +188,9 @@ action again to run it.
 Press `p` (or choose **Print dates and quit** in Actions) to close the UI and leave
 a plain-text list of every archive's date and time in your terminal, ready to copy
 and share. This rereads the backup directory, ignores the current filter, and
-prints one UTC timestamp per archive, newest first, including seconds. External
+prints one Central European local timestamp (`Europe/Berlin`) per archive,
+newest first, including seconds. Each date shows `CET` or `CEST` and its UTC
+offset, accounting for daylight saving time. External
 archives without a capture timestamp are explicitly marked as file modification
 times. The action is available when idle and does not modify any backups.
 

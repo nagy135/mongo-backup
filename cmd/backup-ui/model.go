@@ -247,7 +247,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.notify("Cannot print backup dates: "+msg.err.Error(), true)
 			return m, nil
 		}
-		m.printedDates = formatArchiveDates(msg.archives)
+		output, err := formatArchiveDates(msg.archives)
+		if err != nil {
+			m.notify("Cannot print backup dates: "+err.Error(), true)
+			return m, nil
+		}
+		m.printedDates = output
 		m.quitting = true
 		return m, tea.Quit
 	case refreshMsg:
