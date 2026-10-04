@@ -176,6 +176,7 @@ action again to run it.
 | `b` | Create a backup |
 | `r` | Preflight and restore the selected archive |
 | `n` | Rename the selected archive with a suffix |
+| `p` | Print all backup dates and quit |
 | `/` | Filter archives by name |
 | `R` | Refresh archives (also refreshes automatically every five seconds) |
 | `1` / `2` / `3` | Focus archives / actions / activity |
@@ -183,6 +184,13 @@ action again to run it.
 | `Esc` | Clear the filter or cancel a dialog |
 | `q` | Quit when idle |
 | `Ctrl+C` | Stop the active operation, release its lock, and quit |
+
+Press `p` (or choose **Print dates and quit** in Actions) to close the UI and leave
+a plain-text list of every archive's date and time in your terminal, ready to copy
+and share. This rereads the backup directory, ignores the current filter, and
+prints one UTC timestamp per archive, newest first, including seconds. External
+archives without a capture timestamp are explicitly marked as file modification
+times. The action is available when idle and does not modify any backups.
 
 To restore an external archive, copy it to the backup volume first:
 

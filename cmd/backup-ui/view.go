@@ -233,8 +233,8 @@ func (m model) detailsView(g geometry) string {
 	return frame("Selected archive", lines, g.right, g.details, false)
 }
 
-var actionNames = []string{"Create backup", "Restore selected", "Rename selected", "Refresh archives"}
-var actionKeys = []string{"b", "r", "n", "R"}
+var actionNames = []string{"Create backup", "Restore selected", "Rename selected", "Refresh archives", "Print dates and quit"}
+var actionKeys = []string{"b", "r", "n", "R", "p"}
 
 func (m model) actionsView(g geometry) string {
 	lines := []string{""}
@@ -280,7 +280,7 @@ func (m model) activityView(g geometry) string {
 
 func (m model) View() string {
 	if m.width < 60 || m.height < 20 {
-		return fit("MongoDB Backups · enlarge terminal to 60×20 · q quit", m.width)
+		return fit("MongoDB Backups · enlarge terminal to 60×20 · p print dates · q quit", m.width)
 	}
 	g := m.layout()
 	if m.dialog != noDialog {
@@ -306,7 +306,7 @@ func (m model) View() string {
 		statusStyle = lipgloss.NewStyle().Foreground(danger)
 	}
 	status := statusStyle.Render(fit(" "+clean(m.status), g.width))
-	footer := subtle.Render(fit(" tab panels  ↑↓/jk navigate  b backup  r restore  n rename  / filter  ? help  q quit", g.width))
+	footer := subtle.Render(fit(" tab panels  ↑↓/jk navigate  b backup  r restore  n rename  p print dates  / filter  ? help  q quit", g.width))
 	return lipgloss.NewStyle().Padding(0, 1).Render(strings.Join([]string{header, configuration, body, m.activityView(g), status, footer, ""}, "\n"))
 }
 
@@ -323,6 +323,7 @@ func (m model) dialogView(g geometry) string {
 			"  ↑↓ or j/k          Navigate or scroll", "  Home/End · PgUp/Dn  Jump through the list",
 			"  b                  Create backup", "  r                  Preflight and restore selected archive",
 			"  n                  Rename selected archive with a suffix", "  R                  Refresh archives",
+			"  p                  Print all backup dates and quit",
 			"  /                  Filter archives by name", "  Esc                Clear filter / close dialog",
 			"  q                  Quit when idle", "  Ctrl+C             Stop active operation and quit", "",
 			"  Click panels, archive rows, or actions to select them.", "  Click an action again to run it. Mouse wheel scrolls.", "",

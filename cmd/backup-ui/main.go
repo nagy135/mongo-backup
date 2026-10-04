@@ -19,8 +19,15 @@ func main() {
 		<-ctx.Done()
 		p.Send(interruptMsg{})
 	}()
-	if _, err := p.Run(); err != nil {
+	final, err := p.Run()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "backup-ui:", err)
 		os.Exit(1)
+	}
+	if output := final.(model).printedDates; output != "" {
+		if _, err := fmt.Fprint(os.Stdout, output); err != nil {
+			fmt.Fprintln(os.Stderr, "backup-ui:", err)
+			os.Exit(1)
+		}
 	}
 }

@@ -35,6 +35,10 @@ type archivesMsg struct {
 	locked   bool
 	err      error
 }
+type archiveDatesMsg struct {
+	archives []archive
+	err      error
+}
 type refreshMsg struct{}
 type interruptMsg struct{}
 type operationMsg struct {
@@ -78,6 +82,8 @@ type model struct {
 	logOffset int
 	status    string
 	failed    bool
+
+	printedDates string
 }
 
 func newModel(ctx context.Context, c config, run commandRunner) model {
@@ -180,6 +186,15 @@ func (m *model) activate(action int) tea.Cmd {
 	if m.busy != "" {
 		return nil
 	}
+	if action == 4 {
+		m.busy = "listing"
+		m.notify("Reading all backup dates…", false)
+		directory := m.config.directory
+		return func() tea.Msg {
+			archives, err := readArchives(directory)
+			return archiveDatesMsg{archives: archives, err: err}
+		}
+	}
 	if action == 3 {
 		m.status, m.failed = "Refreshing archives…", false
 		return m.loadArchives()
@@ -223,6 +238,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if recovered || m.status == "Loading archives…" || m.status == "Refreshing archives…" {
 			m.status, m.failed = "Ready", false
 		}
+	case archiveDatesMsg:
+		m.busy = ""
+		if m.quitting {
+			return m, tea.Quit
+		}
+		if msg.err != nil {
+			m.notify("Cannot print backup dates: "+msg.err.Error(), true)
+			return m, nil
+		}
+		m.printedDates = formatArchiveDates(msg.archives)
+		m.quitting = true
+		return m, tea.Quit
 	case refreshMsg:
 		return m, tea.Batch(m.loadArchives(), refreshAfter())
 	case spinner.TickMsg:
@@ -266,6 +293,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.width < 60 || m.height < 20 {
+			if msg.String() == "p" {
+				return m, m.activate(4)
+			}
 			if msg.String() == "q" && m.busy == "" {
 				return m, tea.Quit
 			}
@@ -335,6 +365,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.activate(2)
 		case "R":
 			return m, m.activate(3)
+		case "p":
+			return m, m.activate(4)
 		case "enter", " ":
 			if m.focus == actionsPanel {
 				return m, m.activate(m.action)
@@ -362,7 +394,7 @@ func (m *model) move(delta int) {
 	case archivesPanel:
 		m.selected = min(max(0, m.selected+delta), max(0, len(m.visible)-1))
 	case actionsPanel:
-		m.action = min(max(0, m.action+delta), 3)
+		m.action = min(max(0, m.action+delta), len(actionNames)-1)
 	case activityPanel:
 		m.logOffset = min(max(0, m.logOffset-delta), max(0, len(m.logs)-m.layout().logRows))
 	}
